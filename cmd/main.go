@@ -397,4 +397,6 @@ func main() {
 	}
 
 	log.Printf("Обработка завершена. Всего клиентов: %d", len(clientInfos))
+	log.Printf("Проверка Git")
+
 }
