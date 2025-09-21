@@ -396,36 +396,46 @@ func main() {
 
 	log.Println("Сообщение успешно отправлено")
 
-	clients, err := userManager.GetClients()
-	if err != nil {
-		log.Printf("Ошибка получения пользователей: %v", err)
-	}
+	// clients, err := userManager.GetClients()
+	// if err != nil {
+	// 	log.Printf("Ошибка получения пользователей: %v", err)
+	// }
 
-	err = userManager.SaveClientsToJSON(clients, "users_json/all_clients.json")
+	// err = userManager.SaveClientsToJSON(clients, "users_json/all_clients.json")
+	// if err != nil {
+	// 	log.Printf("Ошибка сохранения клиентов: %v", err)
+	// 	return
+	// }
+
+	// log.Printf("Начинаем параллельное получение информации о %d клиентах", len(clients))
+	// start := time.Now()
+
+	// // Получаем информацию о клиентах параллельно (50 воркеров)
+	// clientInfos, err := userManager.GetClientInfoBatch(clients, 300)
+	// if err != nil {
+	// 	log.Printf("Ошибка получения информации о клиентах: %v", err)
+	// 	return
+	// }
+
+	// duration := time.Since(start)
+	// log.Printf("Получение информации о клиентах заняло: %v", duration)
+
+	// // Сохраняем информацию о клиентах
+	// err = userManager.SaveClientInfoToJSON(clientInfos, "users_json/client_info.json")
+	// if err != nil {
+	// 	log.Printf("Ошибка сохранения информации о клиентах: %v", err)
+	// 	return
+	// }
+
+	file, err := os.Open("users_json/client_info.json")
+	data, err := io.ReadAll(file)
 	if err != nil {
-		log.Printf("Ошибка сохранения клиентов: %v", err)
+		log.Printf("Ошибка открытия файла: %v", err)
 		return
 	}
-
-	log.Printf("Начинаем параллельное получение информации о %d клиентах", len(clients))
-	start := time.Now()
-
-	// Получаем информацию о клиентах параллельно (50 воркеров)
-	clientInfos, err := userManager.GetClientInfoBatch(clients, 300)
-	if err != nil {
-		log.Printf("Ошибка получения информации о клиентах: %v", err)
-		return
-	}
-
-	duration := time.Since(start)
-	log.Printf("Получение информации о клиентах заняло: %v", duration)
-
-	// Сохраняем информацию о клиентах
-	err = userManager.SaveClientInfoToJSON(clientInfos, "users_json/client_info.json")
-	if err != nil {
-		log.Printf("Ошибка сохранения информации о клиентах: %v", err)
-		return
-	}
+	defer file.Close()
+	var clientInfos []ClientInfoResponse
+	json.Unmarshal(data, &clientInfos)
 
 	// Выводим первые 10 результатов для примера
 	for i, clientInfo := range clientInfos {
@@ -436,11 +446,11 @@ func main() {
 		fmt.Printf("Пользователь - %v, TelegramID - %v\n", clientInfo.ID, clientInfo.TelegramID)
 	}
 
-	// err = userManager.MassMalling(10, clientInfos, message, 0)
-	// if err != nil {
-	// 	log.Printf("Ошибка массовой рассылки: %v", err)
-	// 	return
-	// }
+	err = userManager.MassMalling(10, clientInfos, message, 0)
+	if err != nil {
+		log.Printf("Ошибка массовой рассылки: %v", err)
+		return
+	}
 
 	log.Printf("Обработка завершена. Всего клиентов: %d", len(clientInfos))
 }
