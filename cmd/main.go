@@ -313,11 +313,52 @@ func (u *UserManager) TestMalling(message string) error {
 	return u.Malling("796508261", message) // Возвращаем ошибку вместо игнорирования
 }
 
-// func (u *UserManager) MassMalling(workers int, users ClientInfoResponse, message string, start_index int) error {
+func (u *UserManager) MassMalling(workers int, users []ClientInfoResponse, message string, start_index int) error {
+	log.Printf("Начинаю массовую рассылку с %d воркерами", workers)
+	userChan := make(chan ClientInfoResponse, len(users))
+	errorChan := make(chan error, len(users))
+	var wg sync.WaitGroup
+	for i := 0; i < workers; i++ {
+		wg.Add(1)
+		go func(workerId int) {
+			defer wg.Done()
+			for user := range userChan {
+				log.Printf("Воркер %d обрабатывает пользователя %d, с телеграмм id %v", workerId, user.ID, user.TelegramID)
+				err := u.Malling(user.TelegramID, message)
+				if err != nil {
+					log.Printf("Ошибка при отправке сообщения пользователю %d: %v", user.ID, err)
+					errorChan <- err // Добавить ошибку в канал
+				}
+			}
+		}(i)
+	}
 
-// }
+	go func() {
+		for i := start_index; i < len(users); i++ {
+			userChan <- users[i]
+		}
+		close(userChan)
+	}()
+
+	go func() {
+		wg.Wait()
+		close(errorChan)
+	}()
+	for err := range errorChan {
+		log.Printf("Ошибка при массовой рассылке: %v", err)
+	}
+	log.Printf("Массовая рассылка завершена")
+	return nil
+}
 
 func main() {
+	logFile, err := os.OpenFile("logs.txt", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	if err != nil {
+		log.Fatalf("Не удалось открыть файл для логов: %v", err)
+	}
+	defer logFile.Close()
+	log.SetOutput(logFile)
+
 	httpClient := http.Client{}
 
 	config, err := loadConfig("config.json")
@@ -333,8 +374,7 @@ func main() {
 		Password: config.Password,
 	}
 	message := `<b>ВНИМАНИЕ</b>❗️
-<b>В связи с участившимися случаями банов telegram каналов оставляем вам ссылку на резервный канал с актуальными ссылками.
-@rezerv_wh_arh1</b>`
+	<b>ВНИМАНИЕ</b>`
 
 	// Проверяем успешность получения токена
 	if err := userManager.GetAccessToken(); err != nil {
@@ -396,7 +436,11 @@ func main() {
 		fmt.Printf("Пользователь - %v, TelegramID - %v\n", clientInfo.ID, clientInfo.TelegramID)
 	}
 
-	log.Printf("Обработка завершена. Всего клиентов: %d", len(clientInfos))
-	log.Printf("Проверка Git")
+	// err = userManager.MassMalling(10, clientInfos, message, 0)
+	// if err != nil {
+	// 	log.Printf("Ошибка массовой рассылки: %v", err)
+	// 	return
+	// }
 
+	log.Printf("Обработка завершена. Всего клиентов: %d", len(clientInfos))
 }
